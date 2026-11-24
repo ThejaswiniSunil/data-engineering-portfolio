@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  capacity-scheduler.xml: one queue ("default") owning 100% of the cluster.
+
+  The one non-default value that matters here is maximum-am-resource-percent. By default YARN lets
+  ApplicationMasters use only 10% of cluster memory. With a 2048 MB NodeManager that is ~204 MB,
+  smaller than one 512 MB MapReduce ApplicationMaster, so every job would sit in ACCEPTED forever.
+  Raising it to 50% is the standard fix for small clusters.
+-->
+<configuration>
+  <property>
+    <name>yarn.scheduler.capacity.maximum-applications</name>
+    <value>10000</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.maximum-am-resource-percent</name>
+    <value>0.5</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.resource-calculator</name>
+    <value>org.apache.hadoop.yarn.util.resource.DefaultResourceCalculator</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.queues</name>
+    <value>default</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.default.capacity</name>
+    <value>100</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.default.user-limit-factor</name>
+    <value>1</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.default.maximum-capacity</name>
+    <value>100</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.default.state</name>
+    <value>RUNNING</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.default.acl_submit_applications</name>
+    <value>*</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.capacity.root.default.acl_administer_queue</name>
+    <value>*</value>
+  </property>
+</configuration>

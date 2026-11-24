@@ -1,0 +1,146 @@
+# Phase 1: HDFS + YARN cluster (1 NameNode, 2 DataNodes, 1 ResourceManager, 1 NodeManager).
+# Sized for a 2-core / ~7.8 GB GitHub Codespace. See docs/resource-plan.md.
+#
+# Start:   ./scripts/01_up.sh      (or: docker compose up -d --wait)
+# Verify:  ./scripts/02_verify_phase1.sh
+# Stop:    docker compose down      (data kept)   |   docker compose down -v   (data wiped)
+
+name: nyc-taxi-lakehouse
+
+x-hadoop: &hadoop
+  image: apache/hadoop:3.4.2          # pinned; amd64 only (fine for Codespaces)
+  restart: unless-stopped
+
+services:
+  # Named volumes are created root-owned. This one-shot job hands them to the user that owns
+  # /opt/hadoop in the image, so the Hadoop daemons (which do not run as root) can write to them.
+  init-perms:
+    image: apache/hadoop:3.4.2
+    user: root
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - 'chown -R "$$(stat -c %u:%g /opt/hadoop)" /v/nn /v/dn1 /v/dn2 /v/nm && echo "volume ownership set"'
+    volumes:
+      - nn-data:/v/nn
+      - dn1-data:/v/dn1
+      - dn2-data:/v/dn2
+      - nm-data:/v/nm
+
+  # NameNode: the metadata server. Knows which blocks make up each file and where replicas live.
+  # Formats its storage directory once (idempotent: skipped if it already holds metadata).
+  namenode:
+    <<: *hadoop
+    hostname: namenode
+    depends_on:
+      init-perms:
+        condition: service_completed_successfully
+    command:
+      - /bin/bash
+      - -c
+      - '[ -d /data/namenode/current ] || hdfs namenode -format -nonInteractive; exec hdfs namenode'
+    environment:
+      HADOOP_HEAPSIZE_MAX: 384m
+    ports:
+      - "9870:9870"   # NameNode web UI
+    volumes:
+      - nn-data:/data
+      - ./conf/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/hadoop/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - ./conf/hadoop/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/hadoop/capacity-scheduler.xml:/opt/hadoop/etc/hadoop/capacity-scheduler.xml:ro
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/9870"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  # DataNodes: store the actual block files and report to the NameNode via heartbeats.
+  datanode1:
+    <<: *hadoop
+    hostname: datanode1
+    depends_on:
+      namenode:
+        condition: service_healthy
+    command: ["hdfs", "datanode"]
+    environment:
+      HADOOP_HEAPSIZE_MAX: 256m
+    volumes:
+      - dn1-data:/data
+      - ./conf/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/hadoop/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - ./conf/hadoop/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/hadoop/capacity-scheduler.xml:/opt/hadoop/etc/hadoop/capacity-scheduler.xml:ro
+
+  datanode2:
+    <<: *hadoop
+    hostname: datanode2
+    depends_on:
+      namenode:
+        condition: service_healthy
+    command: ["hdfs", "datanode"]
+    environment:
+      HADOOP_HEAPSIZE_MAX: 256m
+    volumes:
+      - dn2-data:/data
+      - ./conf/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/hadoop/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - ./conf/hadoop/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/hadoop/capacity-scheduler.xml:/opt/hadoop/etc/hadoop/capacity-scheduler.xml:ro
+
+  # ResourceManager: the YARN cluster scheduler. Decides which NodeManager runs which container.
+  resourcemanager:
+    <<: *hadoop
+    hostname: resourcemanager
+    depends_on:
+      namenode:
+        condition: service_healthy
+    command: ["yarn", "resourcemanager"]
+    environment:
+      HADOOP_HEAPSIZE_MAX: 384m
+    ports:
+      - "8088:8088"   # ResourceManager web UI
+    volumes:
+      - ./conf/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/hadoop/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - ./conf/hadoop/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/hadoop/capacity-scheduler.xml:/opt/hadoop/etc/hadoop/capacity-scheduler.xml:ro
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/8088"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  # NodeManager: the per-node agent that launches and monitors containers (MapReduce now, Spark later).
+  nodemanager:
+    <<: *hadoop
+    hostname: nodemanager
+    depends_on:
+      resourcemanager:
+        condition: service_healthy
+      init-perms:
+        condition: service_completed_successfully
+    command: ["yarn", "nodemanager"]
+    environment:
+      HADOOP_HEAPSIZE_MAX: 384m
+    ports:
+      - "8042:8042"   # NodeManager web UI
+    volumes:
+      - nm-data:/data
+      - ./conf/hadoop/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./conf/hadoop/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./conf/hadoop/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
+      - ./conf/hadoop/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./conf/hadoop/capacity-scheduler.xml:/opt/hadoop/etc/hadoop/capacity-scheduler.xml:ro
+
+volumes:
+  nn-data:
+  dn1-data:
+  dn2-data:
+  nm-data:

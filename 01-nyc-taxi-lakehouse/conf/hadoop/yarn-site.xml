@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  yarn-site.xml: YARN resource management, sized for a 2-core / ~7.8 GB Codespace.
+  The NodeManager advertises 2048 MB and 2 vcores to the ResourceManager; every container
+  (MapReduce tasks now, Spark executors later) must fit inside that budget.
+-->
+<configuration>
+  <property>
+    <name>yarn.resourcemanager.hostname</name>
+    <value>resourcemanager</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.bind-host</name>
+    <value>0.0.0.0</value>
+  </property>
+  <property>
+    <name>yarn.nodemanager.bind-host</name>
+    <value>0.0.0.0</value>
+  </property>
+
+  <!-- The shuffle service: lets reducers fetch map output from this node. Required for MapReduce. -->
+  <property>
+    <name>yarn.nodemanager.aux-services</name>
+    <value>mapreduce_shuffle</value>
+  </property>
+
+  <!-- Resource budget this NodeManager offers to YARN. -->
+  <property>
+    <name>yarn.nodemanager.resource.memory-mb</name>
+    <value>2048</value>
+  </property>
+  <property>
+    <name>yarn.nodemanager.resource.cpu-vcores</name>
+    <value>2</value>
+  </property>
+  <!-- Smallest and largest single container YARN will grant. -->
+  <property>
+    <name>yarn.scheduler.minimum-allocation-mb</name>
+    <value>256</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.maximum-allocation-mb</name>
+    <value>1024</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.minimum-allocation-vcores</name>
+    <value>1</value>
+  </property>
+  <property>
+    <name>yarn.scheduler.maximum-allocation-vcores</name>
+    <value>2</value>
+  </property>
+
+  <!-- Virtual-memory checks kill healthy JVMs inside containers; physical-memory check stays on. -->
+  <property>
+    <name>yarn.nodemanager.vmem-check-enabled</name>
+    <value>false</value>
+  </property>
+
+  <!-- Codespaces disks are often fairly full. By default YARN marks a disk "bad" above 90% use,
+       and a NodeManager with no good disks takes itself out of service. -->
+  <property>
+    <name>yarn.nodemanager.disk-health-checker.max-disk-utilization-per-disk-percentage</name>
+    <value>98.5</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.local-dirs</name>
+    <value>/data/nm-local</value>
+  </property>
+  <property>
+    <name>yarn.nodemanager.log-dirs</name>
+    <value>/data/nm-logs</value>
+  </property>
+  <property>
+    <name>yarn.log-aggregation-enable</name>
+    <value>false</value>
+  </property>
+</configuration>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  core-site.xml: settings shared by every Hadoop component (HDFS, YARN, MapReduce, later Hive/Spark/HBase).
+  fs.defaultFS is the single most important one: it tells every client "when a path has no scheme,
+  talk to the HDFS NameNode at this address".
+-->
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://namenode:8020</value>
+  </property>
+  <!-- Scratch space for daemons that need a local tmp dir. Lives on a named volume. -->
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/data/tmp</value>
+  </property>
+</configuration>

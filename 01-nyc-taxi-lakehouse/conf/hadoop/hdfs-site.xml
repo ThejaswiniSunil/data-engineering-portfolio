@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  hdfs-site.xml: HDFS behaviour.
+-->
+<configuration>
+  <!-- Where the NameNode keeps the namespace: fsimage + edit log (the file-to-block metadata). -->
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///data/namenode</value>
+  </property>
+  <!-- Where each DataNode keeps actual block files. -->
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///data/datanode</value>
+  </property>
+  <!-- Every block is stored on 2 DataNodes. With 2 DataNodes this means each DataNode holds a full copy,
+       so we can kill one and still read everything (the fault-tolerance exercise in docs/phase1). -->
+  <property>
+    <name>dfs.replication</name>
+    <value>2</value>
+  </property>
+  <!-- 128 MB is the HDFS default; written out so it is explicit and explainable. -->
+  <property>
+    <name>dfs.blocksize</name>
+    <value>134217728</value>
+  </property>
+  <property>
+    <name>dfs.namenode.rpc-address</name>
+    <value>namenode:8020</value>
+  </property>
+  <property>
+    <name>dfs.namenode.http-address</name>
+    <value>0.0.0.0:9870</value>
+  </property>
+  <!-- Docker gives every container a changing IP. Without this, the NameNode rejects DataNodes whose
+       IP does not reverse-resolve to the hostname they report. -->
+  <property>
+    <name>dfs.namenode.datanode.registration.ip-hostname-check</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>dfs.webhdfs.enabled</name>
+    <value>true</value>
+  </property>
+</configuration>
